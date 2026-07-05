@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dorkitude/linctl/pkg/api"
+	"github.com/t-choudhury/linctl/pkg/api"
 	"github.com/fatih/color"
 )
 

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dorkitude/linctl/pkg/api"
-	"github.com/dorkitude/linctl/pkg/auth"
-	"github.com/dorkitude/linctl/pkg/output"
+	"github.com/t-choudhury/linctl/pkg/api"
+	"github.com/t-choudhury/linctl/pkg/auth"
+	"github.com/t-choudhury/linctl/pkg/output"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

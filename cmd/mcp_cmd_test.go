@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dorkitude/linctl/pkg/api"
-	"github.com/dorkitude/linctl/pkg/mcpcache"
+	"github.com/t-choudhury/linctl/pkg/api"
+	"github.com/t-choudhury/linctl/pkg/mcpcache"
 	"github.com/spf13/viper"
 )
 

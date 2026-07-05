@@ -2,6 +2,8 @@
 
 A command-line interface for the Linear API, built with Go and Cobra.
 
+> **Fork notice**: This is an independently maintained fork of [dorkitude/linctl](https://github.com/dorkitude/linctl), originally created by Kyle Wild. It includes additional features (estimate flag, initiative CRUD, issue relations, project content editing) and bug fixes not present in upstream. Licensed under MIT — see [LICENSE](LICENSE).
+
 ## Features
 
 - **Authentication**: personal API key auth (`linctl auth`), env-var override, and optional [`pass`](https://www.passwordstore.org/) credential storage.
@@ -25,44 +27,21 @@ A command-line interface for the Linear API, built with Go and Cobra.
 
 ## Installation
 
-### Homebrew (macOS/Linux)
+### Go Install (Recommended)
 
 ```bash
-brew tap dorkitude/linctl
-brew install linctl
-linctl docs      # Render the README.md
+go install github.com/t-choudhury/linctl@latest
 ```
 
-### Nix
-
-```bash
-nix profile install github:dorkitude/linctl
-linctl docs      # Render the README.md
-```
+Ensure `~/go/bin` is on your PATH.
 
 ### From Source
 
 ```bash
-git clone https://github.com/dorkitude/linctl.git
+git clone https://github.com/t-choudhury/linctl.git
 cd linctl
-make deps        # Install dependencies
-make build       # Build the binary
-make install     # Install to /usr/local/bin (requires sudo)
-linctl docs      # Render the README.md
-```
-
-### For Development
-
-```bash
-git clone https://github.com/dorkitude/linctl.git
-cd linctl
-make deps        # Install dependencies
-go run main.go   # Run directly without building
-make dev         # Or build and run in development mode
-make test        # Run smoke tests
-make lint        # Run linter
-make fmt         # Format code
-linctl docs      # Render the README.md
+go build -o linctl .
+go install .
 ```
 
 ## Important: Default Filters
