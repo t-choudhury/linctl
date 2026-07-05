@@ -10,6 +10,7 @@ A command-line interface for the Linear API, built with Go and Cobra.
   - due dates, attachments, comments, and rich issue detail output
   - issue relations (blocks, blocked-by, related, duplicate, similar)
 - **Projects**: list/get/create/update/delete/archive.
+- **Initiatives**: list/get/create/update/delete/archive/unarchive/link/unlink.
 - **Teams**: list/get/members/state (list/update).
 - **Users**: list/get/me.
 - **Labels**: list/get/create/update/delete.
@@ -139,9 +140,9 @@ linctl issue create --title "Bug fix" --team ENG
 linctl issue create --title "Bug fix" --team ENG --project "Q1 Platform"
 linctl issue create --title "Bug fix" --team ENG --project "Q1 Platform" --project-milestone "Phase 1"
 linctl issue create --title "Bug fix" --team ENG --state "In Progress"
-linctl issue create --title "Bug fix" --team ENG --estimate 3
 linctl issue create --title "Bug fix" --team ENG --labels bug,urgent
 linctl issue create --title "Bug fix" --team ENG --delegate agent-runner
+linctl issue create --title "Bug fix" --team ENG --estimate 3
 
 # Assign issue to yourself
 linctl issue assign LIN-123
@@ -229,7 +230,40 @@ linctl project delete PROJECT-ID
 linctl project delete PROJECT-ID --permanent --force
 ```
 
-### 4. Team Management
+### 4. Initiative Management
+
+```bash
+# List all active initiatives
+linctl initiative list
+
+# List all initiatives including completed
+linctl initiative list --include-completed
+
+# Filter by status
+linctl initiative list --status active
+
+# Get initiative details
+linctl initiative get INITIATIVE-ID
+
+# Create an initiative
+linctl initiative create --name "Q3 Revenue Goals" --owner me --status Active
+
+# Update an initiative
+linctl initiative update INITIATIVE-ID --target-date 2026-12-31
+
+# Archive / unarchive
+linctl initiative archive INITIATIVE-ID
+linctl initiative unarchive INITIATIVE-ID
+
+# Permanently delete
+linctl initiative delete INITIATIVE-ID --force
+
+# Link / unlink a project
+linctl initiative link INITIATIVE-ID --project PROJECT-ID
+linctl initiative unlink INITIATIVE-ID --project PROJECT-ID
+```
+
+### 5. Team Management
 
 ```bash
 # List all teams
@@ -248,7 +282,7 @@ linctl team state list ENG
 linctl team state update STATE-ID --name "Ready" --color "#abc"
 ```
 
-### 5. User Management
+### 6. User Management
 
 ```bash
 # List all users
@@ -264,7 +298,7 @@ linctl user get john@example.com
 linctl user me
 ```
 
-### 6. Comments
+### 7. Comments
 
 ```bash
 # List comments on an issue
@@ -279,7 +313,7 @@ linctl comment update COMMENT-ID --body "Updated comment body"
 linctl comment delete COMMENT-ID
 ```
 
-### 7. Label Management
+### 8. Label Management
 
 ```bash
 # List labels for a team
@@ -299,7 +333,7 @@ linctl label update LABEL-ID --name "critical bug"
 linctl label delete LABEL-ID
 ```
 
-### 8. Agent Sessions
+### 9. Agent Sessions
 
 ```bash
 # View delegated/agent session state for an issue
@@ -312,7 +346,7 @@ linctl agent mention ENG-80 "Please investigate this failure"
 linctl agent mention ENG-80 --agent agent-runner "Please rerun tests"
 ```
 
-### 9. Raw GraphQL (API Escape Hatch)
+### 10. Raw GraphQL (API Escape Hatch)
 
 ```bash
 # Direct query
@@ -331,7 +365,7 @@ linctl graphql --file query.graphql --variables-file vars.json
 cat query.graphql | linctl graphql --variables '{"k":"ENG"}'
 ```
 
-### 10. Dynamic MCP Tools (Schema-Driven)
+### 11. Dynamic MCP Tools (Schema-Driven)
 
 ```bash
 # Sync cache from live schema introspection (12h TTL)
@@ -432,11 +466,11 @@ linctl issue new [flags]      # Alias
   -d, --description string Issue description
   -t, --team string        Team key (required)
   --priority int       Priority 0-4 (default 3)
-  -e, --estimate int   Estimate points (depends on team's estimation system)
   -m, --assign-me          Assign to yourself
   -s, --state string       State name (e.g., 'Todo', 'In Progress')
   --delegate string        Delegate to user/agent (email, name, or displayName)
   --labels strings         Labels to assign (names or IDs, comma-separated)
+  -e, --estimate int   Estimate points (depends on team's estimation system)
   --project string         Project name or ID to assign the issue to
   --project-milestone string  Project milestone name or ID (requires --project)
 
@@ -452,12 +486,12 @@ linctl issue edit <issue-id> [flags]    # Alias
   -a, --assignee string    Assignee (email, name, 'me', or 'unassigned')
   -s, --state string       State name (e.g., 'Todo', 'In Progress', 'Done')
   --priority int           Priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)
-  -e, --estimate int       Estimate points (depends on team's estimation system)
   --due-date string        Due date (YYYY-MM-DD format, or empty to remove)
   --delegate string        Delegate to user/agent (email, name, displayName, or 'none' to remove)
   --labels strings         Replace labels with provided names or IDs (comma-separated)
   --clear-labels           Remove all labels from the issue
   --parent string          Parent issue ID/identifier (or 'none' to remove parent)
+  -e, --estimate int       Estimate points (depends on team's estimation system)
   --project string         Project name or ID (or 'none' to remove project assignment)
   --project-milestone string  Project milestone name or ID (or 'none' to remove milestone)
 
@@ -611,6 +645,58 @@ linctl project remove <project-id> [flags]
 # Key flags:
   --permanent            Permanently delete instead of archive
   -f, --force            Skip confirmation prompt
+```
+
+### Initiative Commands
+
+```bash
+# List initiatives
+linctl initiative list [flags]
+linctl initiative ls [flags]      # Alias
+# Flags:
+  -s, --status string        Filter by status (Planned, Active, Completed)
+  -l, --limit int            Maximum results (default 50)
+  -c, --include-completed    Include completed initiatives
+
+# Get initiative details
+linctl initiative get <initiative-id>
+linctl initiative show <initiative-id>  # Alias
+
+# Create initiative
+linctl initiative create [flags]
+linctl initiative new [flags]     # Alias
+# Key flags:
+  --name string            Initiative name (required)
+  -d, --description        Description
+  -s, --status             Planned|Active|Completed
+  --owner                  email|name|me
+  --target-date            YYYY-MM-DD
+  --color                  Hex color
+
+# Update initiative
+linctl initiative update <initiative-id> [flags]
+# Key flags:
+  --name string
+  -d, --description
+  -s, --status             Planned|Active|Completed
+  --owner                  email|name|me|none
+  --target-date            YYYY-MM-DD or empty to clear
+  --color                  Hex color
+
+# Archive / unarchive initiative
+linctl initiative archive <initiative-id>
+linctl initiative unarchive <initiative-id>
+
+# Permanently delete initiative
+linctl initiative delete <initiative-id> [flags]
+linctl initiative rm <initiative-id> [flags]
+linctl initiative remove <initiative-id> [flags]
+# Key flags:
+  -f, --force              Skip confirmation prompt
+
+# Link / unlink initiative to project
+linctl initiative link <initiative-id> --project <project-id>
+linctl initiative unlink <initiative-id> --project <project-id>
 ```
 
 ### User Commands
