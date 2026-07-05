@@ -189,7 +189,6 @@ linctl issue attachment list LIN-123
 linctl issue attachment download LIN-123 --all --output-dir ./downloads
 linctl issue attachment download LIN-123 --id ATTACHMENT-ID
 linctl issue attachment download LIN-123 --name spec.md --output ./spec.md
-
 # Manage issue relations (blocks, blocked-by, related, duplicate, similar)
 linctl issue relation list LIN-123
 linctl issue relation ls LIN-123 -j            # JSON output
@@ -521,6 +520,33 @@ linctl issue attachment download <issue-id> [flags]
 
 ### Issue Relation Commands
 
+```bash
+# List all relations for an issue
+linctl issue relation list <issue-id>
+linctl issue relation ls <issue-id>    # Alias
+
+# Add a relation between two issues
+linctl issue relation add <issue-id> [flags]
+linctl issue relation create <issue-id> [flags]  # Alias
+# Flags (exactly one required):
+  --blocks <issue-id>       This issue blocks the specified issue
+  --blocked-by <issue-id>   This issue is blocked by the specified issue
+  --related <issue-id>      Mark issues as related
+  --duplicate <issue-id>    Mark this issue as a duplicate
+  --similar <issue-id>      Mark issues as similar
+
+# Remove a relation by its ID (from relation list output)
+linctl issue relation remove <relation-id>
+linctl issue relation rm <relation-id>     # Alias
+linctl issue relation delete <relation-id> # Alias
+
+# Examples:
+linctl issue relation add LIN-123 --blocks LIN-456      # LIN-123 blocks LIN-456
+linctl issue relation add LIN-123 --blocked-by LIN-456   # LIN-123 is blocked by LIN-456
+linctl issue relation list LIN-123 -j                    # JSON output for scripting
+```
+
+### Issue Relation Commands
 ```bash
 # List all relations for an issue
 linctl issue relation list <issue-id>
