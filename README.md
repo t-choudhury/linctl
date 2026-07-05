@@ -907,8 +907,7 @@ can opt in to GPG-backed credential storage with `LINCTL_PASS_NAME`.
 ## Authentication
 
 ### Personal API Key (Recommended)
-
-1. Go to [Linear Settings > Security & Access](https://linear.app/<your-org>/settings/account/security)
+1. Go to [Linear Settings > Security & Access](https://linear.app/settings/account/security)
 2. Scroll to **Personal API keys** and create a new key
 3. Run `linctl auth` and paste your key
 

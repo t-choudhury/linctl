@@ -179,7 +179,7 @@ func Login(plaintext, jsonOut bool) error {
 func loginWithAPIKey(plaintext, jsonOut bool) error {
 	if !plaintext && !jsonOut {
 		fmt.Println("\n" + color.New(color.FgYellow).Sprint("📝 Personal API Key Authentication"))
-		fmt.Println("Get your API key from: https://linear.app/<your-org>/settings/account/security")
+		fmt.Println("Get your API key from: https://linear.app/settings/account/security")
 
 		var location string
 		if entry := passEntryName(); entry != "" {
