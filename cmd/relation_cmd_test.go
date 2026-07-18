@@ -81,18 +81,20 @@ func TestRelationAddBlocksSendsCorrectMutation(t *testing.T) {
 		return nil, nil
 	})
 
-	// "LIN-100 --blocks LIN-200" means LIN-100 blocks LIN-200
-	// => LIN-200 is blocked by LIN-100
-	// => API: issueId=LIN-200 (uuid-200), relatedIssueId=LIN-100 (uuid-100), type=blocks
+	// "LIN-100 --blocks LIN-200" means LIN-100 blocks LIN-200.
 	issueRelationAddCmd.Flags().Set("blocks", "LIN-200")
 	issueRelationAddCmd.Run(issueRelationAddCmd, []string{"LIN-100"})
 
-	// Verify the API was called with the correct swapped IDs
-	if capturedInput["issueId"] != "uuid-200" {
-		t.Fatalf("expected issueId=uuid-200 (the blocked issue), got %v", capturedInput["issueId"])
+	// Linear's verified semantics (SOL-207, confirmed empirically 2026-07-10):
+	// issueRelationCreate(issueId: A, relatedIssueId: B, type: blocks) => A blocks B.
+	// These assertions are written in terms of blocker/blocked so they encode
+	// the API's meaning, not whatever payload the implementation happens to send.
+	blocker, blocked := capturedInput["issueId"], capturedInput["relatedIssueId"]
+	if blocker != "uuid-100" {
+		t.Fatalf("blocker must be LIN-100 (uuid-100), got issueId=%v", blocker)
 	}
-	if capturedInput["relatedIssueId"] != "uuid-100" {
-		t.Fatalf("expected relatedIssueId=uuid-100 (the blocker), got %v", capturedInput["relatedIssueId"])
+	if blocked != "uuid-200" {
+		t.Fatalf("blocked must be LIN-200 (uuid-200), got relatedIssueId=%v", blocked)
 	}
 	if capturedInput["type"] != "blocks" {
 		t.Fatalf("expected type=blocks, got %v", capturedInput["type"])
@@ -149,16 +151,19 @@ func TestRelationAddBlockedBySendsCorrectMutation(t *testing.T) {
 		return nil, nil
 	})
 
-	// "LIN-100 --blocked-by LIN-200" means LIN-100 is blocked by LIN-200
-	// => API: issueId=LIN-100 (uuid-100), relatedIssueId=LIN-200 (uuid-200), type=blocks
+	// "LIN-100 --blocked-by LIN-200" means LIN-200 blocks LIN-100.
 	issueRelationAddCmd.Flags().Set("blocked-by", "LIN-200")
 	issueRelationAddCmd.Run(issueRelationAddCmd, []string{"LIN-100"})
 
-	if capturedInput["issueId"] != "uuid-100" {
-		t.Fatalf("expected issueId=uuid-100, got %v", capturedInput["issueId"])
+	// Linear's verified semantics (SOL-207): issueId blocks relatedIssueId.
+	// The blocker here is LIN-200 — asserting the payload the old code sent
+	// (issueId=uuid-100) would re-certify the inversion.
+	blocker, blocked := capturedInput["issueId"], capturedInput["relatedIssueId"]
+	if blocker != "uuid-200" {
+		t.Fatalf("blocker must be LIN-200 (uuid-200), got issueId=%v", blocker)
 	}
-	if capturedInput["relatedIssueId"] != "uuid-200" {
-		t.Fatalf("expected relatedIssueId=uuid-200, got %v", capturedInput["relatedIssueId"])
+	if blocked != "uuid-100" {
+		t.Fatalf("blocked must be LIN-100 (uuid-100), got relatedIssueId=%v", blocked)
 	}
 	if capturedInput["type"] != "blocks" {
 		t.Fatalf("expected type=blocks, got %v", capturedInput["type"])
@@ -182,15 +187,16 @@ func TestRelationListShowsRelations(t *testing.T) {
 			t.Fatalf("expected IssueRelations query, got: %s", gqlReq.Query)
 		}
 
-		// Return one forward "blocks" relation (this issue is blocked by LIN-200)
-		// and one inverse "blocks" relation (this issue blocks LIN-300).
-		// The labels should differ: "blocked by" vs "blocks".
+		// In Linear's schema, `relations` holds edges where LIN-100 is the
+		// issueId (LIN-100 blocks relatedIssue), and `inverseRelations` holds
+		// edges where LIN-100 is the relatedIssue (issue blocks LIN-100).
+		// Forward: LIN-100 blocks LIN-200. Inverse: LIN-300 blocks LIN-100.
 		body := `{"data":{"issue":{
 			"relations":{"nodes":[
-				{"id":"rel-1","type":"blocks","issue":{"id":"uuid-100","identifier":"LIN-100","title":"This issue"},"relatedIssue":{"id":"uuid-200","identifier":"LIN-200","title":"Blocker task"}}
+				{"id":"rel-1","type":"blocks","issue":{"id":"uuid-100","identifier":"LIN-100","title":"This issue"},"relatedIssue":{"id":"uuid-200","identifier":"LIN-200","title":"Downstream task"}}
 			]},
 			"inverseRelations":{"nodes":[
-				{"id":"rel-2","type":"blocks","issue":{"id":"uuid-300","identifier":"LIN-300","title":"Blocked task"},"relatedIssue":{"id":"uuid-100","identifier":"LIN-100","title":"This issue"}}
+				{"id":"rel-2","type":"blocks","issue":{"id":"uuid-300","identifier":"LIN-300","title":"Upstream blocker"},"relatedIssue":{"id":"uuid-100","identifier":"LIN-100","title":"This issue"}}
 			]}
 		}}}`
 		return &http.Response{
@@ -213,21 +219,39 @@ func TestRelationListShowsRelations(t *testing.T) {
 	os.Stdout = oldStdout
 	got := buf.String()
 
-	// Forward "blocks" relation should display as "blocked by"
-	if !strings.Contains(got, "blocked by") {
-		t.Fatalf("expected forward blocks relation labeled 'blocked by', got:\n%s", got)
-	}
-	// Inverse "blocks" relation should display as "blocks" (not "blocked by")
 	lines := strings.Split(got, "\n")
-	var secondLabel string
+	var forwardLine, inverseLine string
 	for _, line := range lines {
+		if strings.Contains(line, "rel-1") {
+			forwardLine = line
+		}
 		if strings.Contains(line, "rel-2") {
-			secondLabel = line
-			break
+			inverseLine = line
 		}
 	}
-	if !strings.Contains(secondLabel, "blocks") || strings.Contains(secondLabel, "blocked by") {
-		t.Fatalf("expected inverse blocks relation labeled 'blocks', got:\n%s", got)
+
+	// Forward relation: LIN-100 blocks LIN-200 → "blocks LIN-200"
+	if !strings.Contains(forwardLine, "blocks") || strings.Contains(forwardLine, "blocked by") {
+		t.Fatalf("forward relation must be labeled 'blocks', got:\n%s", got)
+	}
+	if !strings.Contains(forwardLine, "LIN-200") {
+		t.Fatalf("forward relation must show the other issue LIN-200, got:\n%s", got)
+	}
+
+	// Inverse relation: LIN-300 blocks LIN-100 → "blocked by LIN-300"
+	if !strings.Contains(inverseLine, "blocked by") {
+		t.Fatalf("inverse relation must be labeled 'blocked by', got:\n%s", got)
+	}
+	if !strings.Contains(inverseLine, "LIN-300") {
+		t.Fatalf("inverse relation must show the other issue LIN-300, got:\n%s", got)
+	}
+
+	// An issue must never be listed as its own related issue (SOL-207
+	// secondary defect: the inverse edge's relatedIssue IS the queried issue).
+	for _, line := range []string{forwardLine, inverseLine} {
+		if strings.Contains(line, "LIN-100") {
+			t.Fatalf("LIN-100 listed as its own related issue:\n%s", got)
+		}
 	}
 }
 
@@ -268,9 +292,10 @@ func TestRelationRemoveSendsDeleteMutation(t *testing.T) {
 }
 
 func TestRelationTypeLabel(t *testing.T) {
-	// Forward (non-inverse) labels
+	// Forward (non-inverse): the queried issue is the edge's issueId, so
+	// type=blocks reads "this issue blocks the other" (SOL-207).
 	forwardCases := map[string]string{
-		"blocks":    "blocked by",
+		"blocks":    "blocks",
 		"duplicate": "duplicate of",
 		"related":   "related to",
 		"similar":   "similar to",
@@ -282,9 +307,9 @@ func TestRelationTypeLabel(t *testing.T) {
 		}
 	}
 
-	// Inverse labels — direction-sensitive types should flip
+	// Inverse: the queried issue is the edge's relatedIssueId — flipped.
 	inverseCases := map[string]string{
-		"blocks":    "blocks",
+		"blocks":    "blocked by",
 		"duplicate": "has duplicate",
 		"related":   "related to",
 		"similar":   "similar to",

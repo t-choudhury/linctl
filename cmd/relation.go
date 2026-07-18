@@ -195,16 +195,18 @@ Examples:
 
 		// Map the CLI relation type to the Linear API type.
 		// Linear's issueRelationCreate uses:
-		//   issueId = the issue that has the relation
+		//   issueId = the issue the relation originates from
 		//   relatedIssueId = the other issue
-		//   type = "blocks" means issueId is blocked by relatedIssueId
+		//   type = "blocks" means issueId BLOCKS relatedIssueId
+		// (verified empirically against the live API, 2026-07-10, SOL-207:
+		// issueId=SOL-204, relatedIssueId=SOL-205, type=blocks produced
+		// "SOL-204 blocks SOL-205")
 		//
 		// CLI semantics:
 		//   --blocks TARGET     => "this issue blocks TARGET"
-		//                       => TARGET is blocked by THIS
-		//                       => API: issueId=TARGET, relatedIssueId=THIS, type=blocks
-		//   --blocked-by SOURCE => "this issue is blocked by SOURCE"
-		//                       => API: issueId=THIS, relatedIssueId=SOURCE, type=blocks
+		//                       => API: issueId=THIS, relatedIssueId=TARGET, type=blocks
+		//   --blocked-by SOURCE => "this issue is blocked by SOURCE" = SOURCE blocks THIS
+		//                       => API: issueId=SOURCE, relatedIssueId=THIS, type=blocks
 		//   --related TARGET    => API: issueId=THIS, relatedIssueId=TARGET, type=related
 		//   --duplicate TARGET  => API: issueId=THIS, relatedIssueId=TARGET, type=duplicate
 
@@ -212,14 +214,14 @@ Examples:
 
 		switch relationType {
 		case "blocks":
-			// "LIN-123 blocks LIN-456" => LIN-456 is blocked by LIN-123
-			apiIssueID = relatedIssue.ID
-			apiRelatedIssueID = issue.ID
-			apiType = "blocks"
-		case "blocked-by":
-			// "LIN-123 is blocked by LIN-456" => LIN-123 is blocked by LIN-456
+			// "LIN-123 blocks LIN-456"
 			apiIssueID = issue.ID
 			apiRelatedIssueID = relatedIssue.ID
+			apiType = "blocks"
+		case "blocked-by":
+			// "LIN-123 is blocked by LIN-456" => LIN-456 blocks LIN-123
+			apiIssueID = relatedIssue.ID
+			apiRelatedIssueID = issue.ID
 			apiType = "blocks"
 		case "related":
 			apiIssueID = issue.ID
@@ -311,28 +313,32 @@ Examples:
 	},
 }
 
-// relationOtherIssue returns the "other" issue in a relation — either Issue or
-// RelatedIssue, whichever is populated.
+// relationOtherIssue returns the "other" issue in a relation, relative to the
+// queried issue. On forward edges the queried issue is Issue, so the other is
+// RelatedIssue; on inverse edges the queried issue is RelatedIssue, so the
+// other is Issue. Picking by populated field alone returns the queried issue
+// itself for inverse edges (SOL-207 secondary defect).
 func relationOtherIssue(rel *api.IssueRelation) *api.Issue {
-	if rel.RelatedIssue != nil {
+	if rel.Inverse {
+		if rel.Issue != nil {
+			return rel.Issue
+		}
+	} else if rel.RelatedIssue != nil {
 		return rel.RelatedIssue
-	}
-	if rel.Issue != nil {
-		return rel.Issue
 	}
 	return &api.Issue{Identifier: "?", Title: "unknown"}
 }
 
 // relationTypeLabel returns a human-readable label for a relation type.
-// When inverse is true, the label is flipped to reflect the opposite direction
-// (e.g. "blocks" instead of "blocked by").
+// Forward edges read issueId→relatedIssueId ("blocks"); inverse edges are
+// flipped ("blocked by"). See the API-semantics note in issueRelationAddCmd.
 func relationTypeLabel(t string, inverse bool) string {
 	switch strings.ToLower(t) {
 	case "blocks":
 		if inverse {
-			return "blocks"
+			return "blocked by"
 		}
-		return "blocked by"
+		return "blocks"
 	case "duplicate":
 		if inverse {
 			return "has duplicate"
